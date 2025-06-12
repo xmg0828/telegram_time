@@ -1,194 +1,38 @@
 #!/bin/bash
-# Telegram自动更新时间用户名安装脚本 (改进版)
-# 作者: Claude
-# 版本: 2.0 - 支持多种字体和时间在前显示
+# 修复Telegram时间更新错误脚本
 
 # 设置颜色
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
-PURPLE='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m' # 恢复默认颜色
+NC='\033[0m'
 
-# 检查是否为root用户运行
-if [ "$EUID" -ne 0 ]; then
-    echo -e "${RED}请使用root权限运行此脚本${NC}"
-    echo "例如: sudo bash $0"
-    exit 1
-fi
-
-# 显示欢迎界面
-clear
-echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│                                                         │${NC}"
-echo -e "${CYAN}│     🕐 Telegram 时间用户名更新器 v2.0 🕐               │${NC}"
-echo -e "${CYAN}│                                                         │${NC}"
-echo -e "${CYAN}│              ✨ 支持多种字体样式 ✨                    │${NC}"
-echo -e "${CYAN}│                                                         │${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────┘${NC}"
-echo ""
-
-# 安装依赖项
-echo -e "${YELLOW}📦 正在安装必要的依赖项...${NC}"
-apt update > /dev/null 2>&1
-apt install -y python3 python3-pip > /dev/null 2>&1
-
-# 安装Python依赖
-echo -e "${YELLOW}🐍 安装Python依赖...${NC}"
-pip3 install --break-system-packages telethon pytz > /dev/null 2>&1
-
-# 创建工作目录
 WORK_DIR="/opt/telegram-time"
-echo -e "${YELLOW}📁 创建工作目录: $WORK_DIR${NC}"
-mkdir -p $WORK_DIR
 
-# 交互式获取API凭据
-echo ""
-echo -e "${GREEN}🔑 请输入您的Telegram API凭据${NC}"
-echo -e "${CYAN}您可以从 https://my.telegram.org/apps 获取${NC}"
-read -p "API ID: " API_ID
-read -p "API Hash: " API_HASH
+echo -e "${BLUE}🔧 正在修复Telegram时间更新错误...${NC}"
 
-# 选择字体样式
-echo ""
-echo -e "${GREEN}🎨 请选择字体样式${NC}"
-echo -e "${PURPLE}1) 𝟐𝟐:𝟎𝟓 𝐁𝐫𝐲𝐚𝐧𝐧𝐚 💕 ${CYAN}(数学粗体)${NC}"
-echo -e "${PURPLE}2) 𝟐𝟐:𝟎𝟓 𝘽𝙧𝙮𝙖𝙣𝙣𝙖 💕 ${CYAN}(数学无衬线粗体)${NC}"
-echo -e "${PURPLE}3) 𝟐𝟐:𝟎𝟓 𝒷𝓇𝓎𝒶𝓃𝓃𝒶 💕 ${CYAN}(数学手写体)${NC}"
-echo -e "${PURPLE}4) 𝟐𝟐:𝟎𝟓 𝐵𝓇𝓎𝒶𝓃𝓃𝒶 💕 ${CYAN}(数学粗手写体)${NC}"
-echo -e "${PURPLE}5) 𝟐𝟐:𝟎𝟓 𝓑𝓻𝔂𝓪𝓷𝓷𝓪 💕 ${CYAN}(数学Fraktur)${NC}"
-echo -e "${PURPLE}6) 𝟐𝟐:𝟎𝟓 𝖡𝗋𝗒𝖺𝗇𝗇𝖺 💕 ${CYAN}(数学无衬线)${NC}"
-echo -e "${PURPLE}7) 𝟐𝟐:𝟎𝟓 𝘉𝘳𝘺𝘢𝘯𝘯𝘢 💕 ${CYAN}(数学斜体)${NC}"
-echo -e "${PURPLE}8) 𝟐𝟐:𝟎𝟓 𝕭𝖗𝖞𝖆𝖓𝖓𝖆 💕 ${CYAN}(数学双线)${NC}"
-echo -e "${PURPLE}9) 𝟐𝟐:𝟎𝟓 𝙱𝚛𝚢𝚊𝚗𝚗𝚊 💕 ${CYAN}(等宽字体)${NC}"
-echo -e "${PURPLE}10) 22:05 Bryanna 💕 ${CYAN}(普通字体)${NC}"
-read -p "选择字体 [1-10]: " FONT_CHOICE
+# 停止服务
+echo -e "${YELLOW}1. 停止服务...${NC}"
+systemctl stop telegram-time
 
-# 设置字体变量
-case $FONT_CHOICE in
-    1) FONT_TYPE="math_bold" ;;
-    2) FONT_TYPE="math_sans_bold" ;;
-    3) FONT_TYPE="math_script" ;;
-    4) FONT_TYPE="math_bold_script" ;;
-    5) FONT_TYPE="math_fraktur" ;;
-    6) FONT_TYPE="math_sans" ;;
-    7) FONT_TYPE="math_italic" ;;
-    8) FONT_TYPE="math_double" ;;
-    9) FONT_TYPE="monospace" ;;
-    10) FONT_TYPE="normal" ;;
-    *)
-        echo -e "${RED}无效的选择，使用默认字体 (数学粗体)${NC}"
-        FONT_TYPE="math_bold"
-        ;;
-esac
+# 备份当前脚本
+echo -e "${YELLOW}2. 备份当前脚本...${NC}"
+cp $WORK_DIR/time_username.py $WORK_DIR/time_username.py.backup
 
-# 选择时区
-echo ""
-echo -e "${GREEN}🌍 请选择时区${NC}"
-echo "1) 亚洲/上海 (中国时间)"
-echo "2) 亚洲/香港"
-echo "3) 亚洲/新加坡"
-echo "4) 美国/东部"
-echo "5) 美国/西部"
-echo "6) 欧洲/伦敦"
-echo "7) 自定义"
-read -p "选择 [1-7]: " TIMEZONE_CHOICE
+# 创建修复后的Python脚本
+echo -e "${YELLOW}3. 创建修复后的脚本...${NC}"
 
-case $TIMEZONE_CHOICE in
-    1) TIMEZONE="Asia/Shanghai" ;;
-    2) TIMEZONE="Asia/Hong_Kong" ;;
-    3) TIMEZONE="Asia/Singapore" ;;
-    4) TIMEZONE="America/New_York" ;;
-    5) TIMEZONE="America/Los_Angeles" ;;
-    6) TIMEZONE="Europe/London" ;;
-    7) 
-        echo "请输入有效的时区名称 (例如: Asia/Tokyo):"
-        read -p "时区: " TIMEZONE
-        ;;
-    *)
-        echo -e "${RED}无效的选择，使用默认时区 Asia/Shanghai${NC}"
-        TIMEZONE="Asia/Shanghai"
-        ;;
-esac
+# 读取现有配置
+API_ID=$(grep "API_ID = " $WORK_DIR/time_username.py | cut -d"'" -f2)
+API_HASH=$(grep "API_HASH = " $WORK_DIR/time_username.py | cut -d"'" -f2)
+TIMEZONE=$(grep "timezone = pytz.timezone" $WORK_DIR/time_username.py | cut -d'"' -f2)
+FONT_TYPE=$(grep "FONT_TYPE = " $WORK_DIR/time_username.py | cut -d"'" -f2)
+TIME_FORMAT=$(grep "TIME_FORMAT = " $WORK_DIR/time_username.py | grep -o '[0-9]')
+USERNAME=$(grep "USERNAME = " $WORK_DIR/time_username.py | cut -d"'" -f2)
+EMOJI=$(grep "EMOJI = " $WORK_DIR/time_username.py | cut -d"'" -f2)
+UPDATE_FREQ=$(grep "UPDATE_FREQUENCY = " $WORK_DIR/time_username.py | grep -o '[0-9]*')
 
-# 选择时间格式
-echo ""
-echo -e "${GREEN}⏰ 请选择时间格式${NC}"
-echo "1) 24小时制 (例如: 22:05)"
-echo "2) 12小时制 (例如: 10:05 PM)"
-echo "3) 带日期 (例如: 12-06 22:05)"
-echo "4) 带星期 (例如: 周四 22:05)"
-echo "5) 带秒显示 (例如: 22:05:30)"
-read -p "选择 [1-5]: " FORMAT_CHOICE
-
-case $FORMAT_CHOICE in
-    1) TIME_FORMAT=1 ;;
-    2) TIME_FORMAT=2 ;;
-    3) TIME_FORMAT=3 ;;
-    4) TIME_FORMAT=4 ;;
-    5) TIME_FORMAT=5 ;;
-    *)
-        echo -e "${RED}无效的选择，使用默认格式 (24小时制)${NC}"
-        TIME_FORMAT=1
-        ;;
-esac
-
-# 输入用户名
-echo ""
-echo -e "${GREEN}👤 请输入您的用户名${NC}"
-read -p "用户名 (例如: Bryanna): " USERNAME
-
-# 选择emoji
-echo ""
-echo -e "${GREEN}😊 请选择emoji (可选)${NC}"
-echo "1) 💕 (爱心)"
-echo "2) 💖 (闪亮心)"
-echo "3) 🌸 (樱花)"
-echo "4) ✨ (星星)"
-echo "5) 🎀 (蝴蝶结)"
-echo "6) 💫 (彗星)"
-echo "7) 🌟 (星星)"
-echo "8) 不使用emoji"
-read -p "选择 [1-8]: " EMOJI_CHOICE
-
-case $EMOJI_CHOICE in
-    1) EMOJI="💕" ;;
-    2) EMOJI="💖" ;;
-    3) EMOJI="🌸" ;;
-    4) EMOJI="✨" ;;
-    5) EMOJI="🎀" ;;
-    6) EMOJI="💫" ;;
-    7) EMOJI="🌟" ;;
-    8) EMOJI="" ;;
-    *)
-        echo -e "${RED}无效的选择，使用默认emoji 💕${NC}"
-        EMOJI="💕"
-        ;;
-esac
-
-# 选择更新频率
-echo ""
-echo -e "${GREEN}⚡ 请选择更新频率${NC}"
-echo -e "${YELLOW}警告: 频繁更新可能导致Telegram账号受限${NC}"
-echo "1) 每分钟 (推荐)"
-echo "2) 每5分钟"
-echo "3) 每小时"
-read -p "选择 [1-3]: " FREQ_CHOICE
-
-case $FREQ_CHOICE in
-    1) UPDATE_FREQ=60 ;;
-    2) UPDATE_FREQ=300 ;;
-    3) UPDATE_FREQ=3600 ;;
-    *)
-        echo -e "${RED}无效的选择，使用默认频率 (每分钟)${NC}"
-        UPDATE_FREQ=60
-        ;;
-esac
-
-# 创建Python脚本
-echo -e "${YELLOW}📝 创建Python脚本...${NC}"
 cat > $WORK_DIR/time_username.py << EOF
 #!/usr/bin/env python3
 from telethon import TelegramClient, functions, types
@@ -300,6 +144,7 @@ def get_time_username():
 
 async def update_username():
     """更新用户名主函数"""
+    client = None
     try:
         # 连接到Telegram
         client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
@@ -307,18 +152,31 @@ async def update_username():
         logger.info("✅ 已连接到Telegram")
         
         me = await client.get_me()
-        logger.info(f"👤 当前账号: {me.first_name} (@{me.username})")
+        logger.info(f"👤 当前账号: {me.first_name}")
         
         while True:
-            new_username = get_time_username()
             try:
-                # 更新用户名
+                new_username = get_time_username()
+                logger.info(f"🔄 准备更新用户名为: {new_username}")
+                
+                # 更新用户名 - 修复的关键部分
                 await client(functions.account.UpdateProfileRequest(
                     first_name=new_username
                 ))
-                logger.info(f"🔄 用户名已更新为: {new_username}")
+                logger.info(f"✅ 用户名已成功更新为: {new_username}")
+                
             except Exception as e:
-                logger.error(f"❌ 更新用户名失败: {e}")
+                error_msg = str(e)
+                logger.error(f"❌ 更新失败: {error_msg}")
+                
+                # 处理不同类型的错误
+                if "flood" in error_msg.lower() or "too many" in error_msg.lower():
+                    logger.warning("⚠️ 触发频率限制，等待5分钟...")
+                    await asyncio.sleep(300)
+                    continue
+                elif "session" in error_msg.lower():
+                    logger.error("🔐 Session问题，需要重新登录")
+                    break
             
             # 计算下次更新时间
             wait_time = UPDATE_FREQUENCY
@@ -331,77 +189,38 @@ async def update_username():
             await asyncio.sleep(wait_time)
 
     except Exception as e:
-        logger.error(f"💥 运行出错: {e}")
+        logger.error(f"💥 连接或运行出错: {str(e)}")
+    finally:
+        if client:
+            await client.disconnect()
         # 如果遇到错误，等待一段时间后重试
         await asyncio.sleep(60)
         await update_username()
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
     try:
-        loop.run_until_complete(update_username())
+        asyncio.run(update_username())
     except KeyboardInterrupt:
         logger.info("🛑 程序被用户中断")
-    finally:
-        loop.close()
+    except Exception as e:
+        logger.error(f"💥 程序异常退出: {str(e)}")
 EOF
 
 # 设置可执行权限
 chmod +x $WORK_DIR/time_username.py
 
-# 创建systemd服务
-echo -e "${YELLOW}⚙️ 创建系统服务...${NC}"
-cat > /etc/systemd/system/telegram-time.service << EOF
-[Unit]
-Description=Telegram Time Username Updater
-After=network.target
+echo -e "${GREEN}4. 修复完成！${NC}"
 
-[Service]
-ExecStart=/usr/bin/python3 $WORK_DIR/time_username.py
-WorkingDirectory=$WORK_DIR
-Restart=always
-RestartSec=10
-User=root
+# 重启服务
+echo -e "${YELLOW}5. 重启服务...${NC}"
+systemctl start telegram-time
 
-[Install]
-WantedBy=multi-user.target
-EOF
+# 检查状态
+echo -e "${YELLOW}6. 检查服务状态...${NC}"
+sleep 3
+systemctl status telegram-time --no-pager -l
 
-# 重新加载systemd
-systemctl daemon-reload
-systemctl enable telegram-time
-
-# 显示完成信息
 echo ""
-echo -e "${GREEN}🎉 安装完成！${NC}"
-echo ""
-echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│                     使用说明                           │${NC}"
-echo -e "${CYAN}└─────────────────────────────────────────────────────────┘${NC}"
-echo ""
-echo -e "${YELLOW}1. 首次登录您的Telegram账号:${NC}"
-echo -e "   ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}"
-echo ""
-echo -e "${YELLOW}2. 登录成功后，按 ${RED}Ctrl+C${NC} ${YELLOW}停止程序，然后启动服务:${NC}"
-echo -e "   ${BLUE}systemctl start telegram-time${NC}"
-echo ""
-echo -e "${YELLOW}3. 查看服务状态:${NC}"
-echo -e "   ${BLUE}systemctl status telegram-time${NC}"
-echo ""
-echo -e "${YELLOW}4. 查看实时日志:${NC}"
-echo -e "   ${BLUE}tail -f $WORK_DIR/time_username.log${NC}"
-echo ""
-echo -e "${YELLOW}5. 停止服务:${NC}"
-echo -e "   ${BLUE}systemctl stop telegram-time${NC}"
-echo ""
-echo -e "${YELLOW}6. 重启服务:${NC}"
-echo -e "   ${BLUE}systemctl restart telegram-time${NC}"
-echo ""
-echo -e "${GREEN}✨ 您的用户名格式预览: ${NC}"
-if [ "$EMOJI" != "" ]; then
-    echo -e "${PURPLE}   22:05 $USERNAME $EMOJI${NC}"
-else
-    echo -e "${PURPLE}   22:05 $USERNAME${NC}"
-fi
-echo ""
-echo -e "${CYAN}💡 提示: 时间会根据您选择的时区和格式自动更新！${NC}"
+echo -e "${GREEN}🎉 修复完成！请查看上面的服务状态。${NC}"
+echo -e "${BLUE}💡 提示：可以运行以下命令查看实时日志：${NC}"
+echo -e "${BLUE}   tail -f $WORK_DIR/time_username.log${NC}"
