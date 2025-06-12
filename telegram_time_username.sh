@@ -23,7 +23,7 @@ clear
 
 # 标题
 echo -e "${BLUE}====================================${NC}"
-echo -e "${BLUE}  Telegram 时间用户名更新器  ${NC}"
+echo -e "${BLUE}  Telegram 时间用户名高级更新器  ${NC}"
 echo -e "${BLUE}====================================${NC}"
 
 # 创建工作目录
@@ -122,6 +122,7 @@ import asyncio
 import logging
 import sys
 import importlib.util
+import os
 
 # 动态导入字体转换模块
 spec = importlib.util.spec_from_file_location("font_converter", "/opt/telegram-time/font_converter.py")
@@ -138,9 +139,47 @@ logging.basicConfig(
     ]
 )
 
-# 配置参数（请在首次运行时手动修改）
-API_ID = 'YOUR_API_ID'
-API_HASH = 'YOUR_API_HASH'
+# 配置文件路径
+CONFIG_FILE = "/opt/telegram-time/config.txt"
+
+def get_api_credentials():
+    # 如果配置文件存在，读取凭据
+    if os.path.exists(CONFIG_FILE):
+        with open(CONFIG_FILE, 'r') as f:
+            lines = f.readlines()
+            if len(lines) >= 2:
+                return lines[0].strip(), lines[1].strip()
+    
+    # 交互式输入API凭据
+    print("未找到Telegram API凭据，请按提示输入")
+    print("您可以从 https://my.telegram.org/apps 获取")
+    
+    while True:
+        try:
+            api_id = input("请输入 API ID (数字): ")
+            api_hash = input("请输入 API Hash (字符串): ")
+            
+            # 验证输入
+            int(api_id)  # 检查是否为数字
+            if not api_hash or len(api_hash) < 10:
+                raise ValueError("API Hash 无效")
+            
+            # 保存凭据
+            with open(CONFIG_FILE, 'w') as f:
+                f.write(f"{api_id}\n{api_hash}")
+            
+            return api_id, api_hash
+        except ValueError as e:
+            print(f"输入无效：{e}")
+            print("请重新输入")
+        except Exception as e:
+            print(f"发生错误：{e}")
+            sys.exit(1)
+
+# 读取凭据
+API_ID, API_HASH = get_api_credentials()
+
+# 配置参数
 TIMEZONE = pytz.timezone('Asia/Shanghai')
 ICON = '⌚️'
 TIME_FORMAT = '%H:%M'
@@ -195,10 +234,10 @@ systemctl daemon-reload
 # 完成提示
 echo -e "\n${GREEN}✅ 安装完成！${NC}"
 echo -e "${YELLOW}使用说明:${NC}"
-echo -e "1. 编辑 $WORK_DIR/time_username.py"
-echo -e "   修改 API_ID 和 API_HASH 为您的 Telegram API 凭据"
-echo -e "2. 首次运行请执行: ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}"
-echo -e "3. 登录成功后，按 Ctrl+C 停止"
-echo -e "4. 启动服务: ${BLUE}systemctl start telegram-time${NC}"
-echo -e "5. 查看服务状态: ${BLUE}systemctl status telegram-time${NC}"
-echo -e "6. 查看日志: ${BLUE}tail -f $WORK_DIR/telegram_time.log${NC}"
+echo -e "1. 首次运行将提示输入 Telegram API 凭据"
+echo -e "2. 获取 API 凭据地址: ${BLUE}https://my.telegram.org/apps${NC}"
+echo -e "3. 首次运行脚本: ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}"
+echo -e "4. 登录成功后，按 Ctrl+C 停止"
+echo -e "5. 启动服务: ${BLUE}systemctl start telegram-time${NC}"
+echo -e "6. 查看服务状态: ${BLUE}systemctl status telegram-time${NC}"
+echo -e "7. 查看日志: ${BLUE}tail -f $WORK_DIR/telegram_time.log${NC}"
