@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Telegram自动更新时间用户名安装脚本 - 系统原生版本
+# Telegram自动更新时间用户名安装脚本 - 虚拟环境版本
 
 # 作者: Claude
 
@@ -29,12 +29,7 @@ fi
 
 echo -e “${YELLOW}正在更新系统并安装依赖…${NC}”
 apt update
-apt install -y python3 python3-pip curl
-
-# 强制安装Python包（忽略外部管理警告）
-
-echo -e “${YELLOW}安装Python依赖包…${NC}”
-pip3 install telethon pytz –break-system-packages –force-reinstall
+apt install -y python3 python3-pip python3-venv python3-full curl
 
 # 创建工作目录
 
@@ -42,15 +37,26 @@ WORK_DIR=”/opt/telegram-time”
 echo -e “${YELLOW}创建工作目录: $WORK_DIR${NC}”
 mkdir -p $WORK_DIR
 
+# 创建虚拟环境
+
+echo -e “${YELLOW}创建Python虚拟环境…${NC}”
+python3 -m venv $WORK_DIR/venv
+
+# 激活虚拟环境并安装依赖
+
+echo -e “${YELLOW}安装Python依赖包…${NC}”
+$WORK_DIR/venv/bin/pip install telethon pytz
+
 # 获取API凭据
 
 echo “”
 echo -e “${GREEN}请输入您的Telegram API凭据${NC}”
 echo -e “${YELLOW}获取地址: https://my.telegram.org/apps${NC}”
 echo “”
-read -p “请输入API ID: “ API_ID
-read -s -p “请输入API Hash: “ API_HASH
-echo “”
+echo -n “请输入API ID: “
+read API_ID
+echo -n “请输入API Hash: “
+read API_HASH
 
 # 验证输入
 
@@ -67,7 +73,8 @@ echo “1) 亚洲/上海 (中国时间)”
 echo “2) 亚洲/香港”
 echo “3) 亚洲/新加坡”
 echo “4) 自定义”
-read -p “选择 [1-4]: “ TIMEZONE_CHOICE
+echo -n “选择 [1-4]: “
+read TIMEZONE_CHOICE
 
 case $TIMEZONE_CHOICE in
 
@@ -77,7 +84,8 @@ case $TIMEZONE_CHOICE in
 1. 
 
 ```
-read -p "请输入时区 (例如: Asia/Tokyo): " TIMEZONE
+echo -n "请输入时区 (例如: Asia/Tokyo): "
+read TIMEZONE
 if [ -z "$TIMEZONE" ]; then
     TIMEZONE="Asia/Shanghai"
 fi
@@ -100,14 +108,16 @@ echo “3) ⚡ 22:05:30 (带秒数)”
 echo “4) 📅 12-06 22:05 (带日期)”
 echo “5) 🔥 周五 22:05 (带星期)”
 echo “6) 自定义表情”
-read -p “选择 [1-6]: “ FORMAT_CHOICE
+echo -n “选择 [1-6]: “
+read FORMAT_CHOICE
 
 # 自定义表情
 
 CUSTOM_EMOJI=“🍼”
-if [ “$FORMAT_CHOICE” -eq 6 ]; then
+if [ “$FORMAT_CHOICE” = “6” ]; then
 echo “”
-read -p “请输入自定义表情 (例如: 🔥): “ CUSTOM_EMOJI
+echo -n “请输入自定义表情 (例如: 🔥): “
+read CUSTOM_EMOJI
 if [ -z “$CUSTOM_EMOJI” ]; then
 CUSTOM_EMOJI=“🍼”
 fi
@@ -121,7 +131,8 @@ echo -e “${YELLOW}注意: 过于频繁可能导致账号限制${NC}”
 echo “1) 每分钟”
 echo “2) 每5分钟 (推荐)”
 echo “3) 每30分钟”
-read -p “选择 [1-3]: “ FREQ_CHOICE
+echo -n “选择 [1-3]: “
+read FREQ_CHOICE
 
 case $FREQ_CHOICE in
 
@@ -134,41 +145,47 @@ case $FREQ_CHOICE in
 # 创建Python脚本
 
 echo -e “${YELLOW}创建Python脚本…${NC}”
-cat > “$WORK_DIR/time_username.py” << EOF
+cat > “$WORK_DIR/time_username.py” << ‘PYTHON_SCRIPT_END’
 #!/usr/bin/env python3
 import asyncio
 import logging
 import os
 import sys
 from datetime import datetime
+
 try:
 import pytz
 from telethon import TelegramClient, functions
 except ImportError as e:
 print(f”导入错误: {e}”)
-print(“请运行: pip3 install telethon pytz –break-system-packages”)
+print(“请检查虚拟环境是否正确安装依赖”)
 sys.exit(1)
 
 # 配置日志
 
+log_file = os.path.join(os.path.dirname(**file**), ‘time_username.log’)
 logging.basicConfig(
 level=logging.INFO,
 format=’%(asctime)s - %(levelname)s - %(message)s’,
 handlers=[
-logging.FileHandler(”$WORK_DIR/time_username.log”),
+logging.FileHandler(log_file),
 logging.StreamHandler()
 ]
 )
 logger = logging.getLogger(**name**)
 
-# 配置
+# 从环境变量读取配置
 
-API_ID = ‘$API_ID’
-API_HASH = ‘$API_HASH’
-TIMEZONE_STR = ‘$TIMEZONE’
-TIME_FORMAT = $FORMAT_CHOICE
-UPDATE_FREQUENCY = $UPDATE_FREQ
-CUSTOM_EMOJI = ‘$CUSTOM_EMOJI’
+API_ID = os.environ.get(‘API_ID’)
+API_HASH = os.environ.get(‘API_HASH’)
+TIMEZONE_STR = os.environ.get(‘TIMEZONE’, ‘Asia/Shanghai’)
+TIME_FORMAT = int(os.environ.get(‘TIME_FORMAT’, ‘1’))
+UPDATE_FREQUENCY = int(os.environ.get(‘UPDATE_FREQ’, ‘300’))
+CUSTOM_EMOJI = os.environ.get(‘CUSTOM_EMOJI’, ‘🍼’)
+
+if not API_ID or not API_HASH:
+logger.error(“错误: 未设置API_ID或API_HASH环境变量”)
+sys.exit(1)
 
 # 设置时区
 
@@ -178,7 +195,7 @@ except:
 timezone = pytz.timezone(‘Asia/Shanghai’)
 logger.warning(f”时区设置失败，使用默认时区: Asia/Shanghai”)
 
-SESSION_NAME = ‘$WORK_DIR/session’
+SESSION_NAME = os.path.join(os.path.dirname(**file**), ‘session’)
 weekday_cn = [‘一’, ‘二’, ‘三’, ‘四’, ‘五’, ‘六’, ‘日’]
 
 def get_time_username():
@@ -267,19 +284,39 @@ print(”\n👋 程序已停止”)
 except Exception as e:
 print(f”💥 启动失败: {e}”)
 sys.exit(1)
-EOF
+PYTHON_SCRIPT_END
 
 # 设置可执行权限
 
 chmod +x “$WORK_DIR/time_username.py”
 
+# 创建环境变量配置文件
+
+cat > “$WORK_DIR/config.env” << EOF
+API_ID=$API_ID
+API_HASH=$API_HASH
+TIMEZONE=$TIMEZONE
+TIME_FORMAT=$FORMAT_CHOICE
+UPDATE_FREQ=$UPDATE_FREQ
+CUSTOM_EMOJI=$CUSTOM_EMOJI
+EOF
+
 # 创建启动脚本
 
-cat > “$WORK_DIR/start.sh” << EOF
+cat > “$WORK_DIR/start.sh” << ‘START_SCRIPT_END’
 #!/bin/bash
-cd $WORK_DIR
-python3 time_username.py
-EOF
+cd /opt/telegram-time
+
+# 加载环境变量
+
+if [ -f config.env ]; then
+export $(cat config.env | grep -v ‘^#’ | xargs)
+fi
+
+# 使用虚拟环境运行Python脚本
+
+./venv/bin/python time_username.py
+START_SCRIPT_END
 
 chmod +x “$WORK_DIR/start.sh”
 
@@ -311,7 +348,7 @@ echo “”
 echo -e “${GREEN}🎉 安装完成！${NC}”
 echo “”
 echo -e “${YELLOW}📱 现在需要登录您的Telegram账号:${NC}”
-echo -e “  ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}”
+echo -e “  ${BLUE}cd $WORK_DIR && ./start.sh${NC}”
 echo “”
 echo -e “${YELLOW}🔑 首次运行时会要求输入手机号和验证码${NC}”
 echo -e “${YELLOW}✅ 登录成功后，按 Ctrl+C 停止程序${NC}”
@@ -326,9 +363,8 @@ echo -e “  重启服务: ${BLUE}systemctl restart telegram-time${NC}”
 echo -e “  查看日志: ${BLUE}tail -f $WORK_DIR/time_username.log${NC}”
 echo “”
 echo -e “${GREEN}配置摘要:${NC}”
-echo -e “  时区: ${TIMEZONE}”
-echo -e “  格式: 选项 ${FORMAT_CHOICE}”
-echo -e “  频率: 每 ${UPDATE_FREQ} 秒”
-echo -e “  表情: ${CUSTOM_EMOJI}”
+echo -e “  时区: $TIMEZONE”
+echo -e “  格式: 选项 $FORMAT_CHOICE”
+echo -e “  频率: 每 $UPDATE_FREQ 秒”
+echo -e “  表情: $CUSTOM_EMOJI”
 echo “”
-EOF
