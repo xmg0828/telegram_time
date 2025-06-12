@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Telegram自动更新时间用户名安装脚本 - 虚拟环境版本
+# Telegram自动更新时间用户名安装脚本 - 完全修复版
 
 # 作者: Claude
 
@@ -53,9 +53,12 @@ echo “”
 echo -e “${GREEN}请输入您的Telegram API凭据${NC}”
 echo -e “${YELLOW}获取地址: https://my.telegram.org/apps${NC}”
 echo “”
-echo -n “请输入API ID: “
+
+# 使用更安全的方式读取输入
+
+printf “请输入API ID: “
 read API_ID
-echo -n “请输入API Hash: “
+printf “请输入API Hash: “
 read API_HASH
 
 # 验证输入
@@ -65,6 +68,11 @@ echo -e “${RED}错误: API ID和API Hash不能为空！${NC}”
 exit 1
 fi
 
+echo “”
+echo -e “${GREEN}API配置成功！${NC}”
+echo “API ID: $API_ID”
+echo “API Hash: ${API_HASH:0:10}…”
+
 # 选择时区
 
 echo “”
@@ -73,7 +81,7 @@ echo “1) 亚洲/上海 (中国时间)”
 echo “2) 亚洲/香港”
 echo “3) 亚洲/新加坡”
 echo “4) 自定义”
-echo -n “选择 [1-4]: “
+printf “选择 [1-4]: “
 read TIMEZONE_CHOICE
 
 case $TIMEZONE_CHOICE in
@@ -84,7 +92,7 @@ case $TIMEZONE_CHOICE in
 1. 
 
 ```
-echo -n "请输入时区 (例如: Asia/Tokyo): "
+printf "请输入时区 (例如: Asia/Tokyo): "
 read TIMEZONE
 if [ -z "$TIMEZONE" ]; then
     TIMEZONE="Asia/Shanghai"
@@ -108,7 +116,7 @@ echo “3) ⚡ 22:05:30 (带秒数)”
 echo “4) 📅 12-06 22:05 (带日期)”
 echo “5) 🔥 周五 22:05 (带星期)”
 echo “6) 自定义表情”
-echo -n “选择 [1-6]: “
+printf “选择 [1-6]: “
 read FORMAT_CHOICE
 
 # 自定义表情
@@ -116,7 +124,7 @@ read FORMAT_CHOICE
 CUSTOM_EMOJI=“🍼”
 if [ “$FORMAT_CHOICE” = “6” ]; then
 echo “”
-echo -n “请输入自定义表情 (例如: 🔥): “
+printf “请输入自定义表情 (例如: 🔥): “
 read CUSTOM_EMOJI
 if [ -z “$CUSTOM_EMOJI” ]; then
 CUSTOM_EMOJI=“🍼”
@@ -131,7 +139,7 @@ echo -e “${YELLOW}注意: 过于频繁可能导致账号限制${NC}”
 echo “1) 每分钟”
 echo “2) 每5分钟 (推荐)”
 echo “3) 每30分钟”
-echo -n “选择 [1-3]: “
+printf “选择 [1-3]: “
 read FREQ_CHOICE
 
 case $FREQ_CHOICE in
@@ -145,7 +153,7 @@ case $FREQ_CHOICE in
 # 创建Python脚本
 
 echo -e “${YELLOW}创建Python脚本…${NC}”
-cat > “$WORK_DIR/time_username.py” << ‘PYTHON_SCRIPT_END’
+cat > “$WORK_DIR/time_username.py” << ‘EOF’
 #!/usr/bin/env python3
 import asyncio
 import logging
@@ -284,7 +292,7 @@ print(”\n👋 程序已停止”)
 except Exception as e:
 print(f”💥 启动失败: {e}”)
 sys.exit(1)
-PYTHON_SCRIPT_END
+EOF
 
 # 设置可执行权限
 
@@ -292,6 +300,7 @@ chmod +x “$WORK_DIR/time_username.py”
 
 # 创建环境变量配置文件
 
+echo -e “${YELLOW}创建配置文件…${NC}”
 cat > “$WORK_DIR/config.env” << EOF
 API_ID=$API_ID
 API_HASH=$API_HASH
@@ -303,7 +312,7 @@ EOF
 
 # 创建启动脚本
 
-cat > “$WORK_DIR/start.sh” << ‘START_SCRIPT_END’
+cat > “$WORK_DIR/start.sh” << ‘EOF’
 #!/bin/bash
 cd /opt/telegram-time
 
@@ -316,12 +325,13 @@ fi
 # 使用虚拟环境运行Python脚本
 
 ./venv/bin/python time_username.py
-START_SCRIPT_END
+EOF
 
 chmod +x “$WORK_DIR/start.sh”
 
 # 创建systemd服务
 
+echo -e “${YELLOW}创建系统服务…${NC}”
 cat > /etc/systemd/system/telegram-time.service << EOF
 [Unit]
 Description=Telegram Time Username Updater
@@ -368,3 +378,4 @@ echo -e “  格式: 选项 $FORMAT_CHOICE”
 echo -e “  频率: 每 $UPDATE_FREQ 秒”
 echo -e “  表情: $CUSTOM_EMOJI”
 echo “”
+echo -e “${BLUE}下一步: 运行 ${YELLOW}cd $WORK_DIR && ./start.sh${BLUE} 来登录账号${NC}”
