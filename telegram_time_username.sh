@@ -1,214 +1,356 @@
 #!/bin/bash
+# Telegram自动更新时间用户名安装脚本 (改进版)
+# 作者: Claude
+# 版本: 2.0 - 支持多种字体和时间在前显示
 
-# Telegram时间用户名更新器 - 一键安装脚本
-
-# 颜色定义
+# 设置颜色
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # 恢复默认颜色
 
-# 工作目录
-WORK_DIR="/opt/telegram-time"
-
-# 检查root权限
+# 检查是否为root用户运行
 if [ "$EUID" -ne 0 ]; then
     echo -e "${RED}请使用root权限运行此脚本${NC}"
+    echo "例如: sudo bash $0"
     exit 1
 fi
 
-# 清屏
+# 显示欢迎界面
 clear
+echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│                                                         │${NC}"
+echo -e "${CYAN}│     🕐 Telegram 时间用户名更新器 v2.0 🕐               │${NC}"
+echo -e "${CYAN}│                                                         │${NC}"
+echo -e "${CYAN}│              ✨ 支持多种字体样式 ✨                    │${NC}"
+echo -e "${CYAN}│                                                         │${NC}"
+echo -e "${CYAN}└─────────────────────────────────────────────────────────┘${NC}"
+echo ""
 
-# 标题
-echo -e "${BLUE}====================================${NC}"
-echo -e "${BLUE}  Telegram 时间用户名高级更新器  ${NC}"
-echo -e "${BLUE}====================================${NC}"
+# 安装依赖项
+echo -e "${YELLOW}📦 正在安装必要的依赖项...${NC}"
+apt update > /dev/null 2>&1
+apt install -y python3 python3-pip > /dev/null 2>&1
+
+# 安装Python依赖
+echo -e "${YELLOW}🐍 安装Python依赖...${NC}"
+pip3 install --break-system-packages telethon pytz > /dev/null 2>&1
 
 # 创建工作目录
+WORK_DIR="/opt/telegram-time"
+echo -e "${YELLOW}📁 创建工作目录: $WORK_DIR${NC}"
 mkdir -p $WORK_DIR
 
-# 安装依赖
-echo -e "${YELLOW}正在安装必要依赖...${NC}"
-apt update &>/dev/null
-apt install -y python3 python3-pip &>/dev/null
-pip3 install telethon pytz &>/dev/null
+# 交互式获取API凭据
+echo ""
+echo -e "${GREEN}🔑 请输入您的Telegram API凭据${NC}"
+echo -e "${CYAN}您可以从 https://my.telegram.org/apps 获取${NC}"
+read -p "API ID: " API_ID
+read -p "API Hash: " API_HASH
 
-# 创建字体转换模块
-cat > $WORK_DIR/font_converter.py << 'EOF'
+# 选择字体样式
+echo ""
+echo -e "${GREEN}🎨 请选择字体样式${NC}"
+echo -e "${PURPLE}1) 𝟐𝟐:𝟎𝟓 𝐁𝐫𝐲𝐚𝐧𝐧𝐚 💕 ${CYAN}(数学粗体)${NC}"
+echo -e "${PURPLE}2) 𝟐𝟐:𝟎𝟓 𝘽𝙧𝙮𝙖𝙣𝙣𝙖 💕 ${CYAN}(数学无衬线粗体)${NC}"
+echo -e "${PURPLE}3) 𝟐𝟐:𝟎𝟓 𝒷𝓇𝓎𝒶𝓃𝓃𝒶 💕 ${CYAN}(数学手写体)${NC}"
+echo -e "${PURPLE}4) 𝟐𝟐:𝟎𝟓 𝐵𝓇𝓎𝒶𝓃𝓃𝒶 💕 ${CYAN}(数学粗手写体)${NC}"
+echo -e "${PURPLE}5) 𝟐𝟐:𝟎𝟓 𝓑𝓻𝔂𝓪𝓷𝓷𝓪 💕 ${CYAN}(数学Fraktur)${NC}"
+echo -e "${PURPLE}6) 𝟐𝟐:𝟎𝟓 𝖡𝗋𝗒𝖺𝗇𝗇𝖺 💕 ${CYAN}(数学无衬线)${NC}"
+echo -e "${PURPLE}7) 𝟐𝟐:𝟎𝟓 𝘉𝘳𝘺𝘢𝘯𝘯𝘢 💕 ${CYAN}(数学斜体)${NC}"
+echo -e "${PURPLE}8) 𝟐𝟐:𝟎𝟓 𝕭𝖗𝖞𝖆𝖓𝖓𝖆 💕 ${CYAN}(数学双线)${NC}"
+echo -e "${PURPLE}9) 𝟐𝟐:𝟎𝟓 𝙱𝚛𝚢𝚊𝚗𝚗𝚊 💕 ${CYAN}(等宽字体)${NC}"
+echo -e "${PURPLE}10) 22:05 Bryanna 💕 ${CYAN}(普通字体)${NC}"
+read -p "选择字体 [1-10]: " FONT_CHOICE
+
+# 设置字体变量
+case $FONT_CHOICE in
+    1) FONT_TYPE="math_bold" ;;
+    2) FONT_TYPE="math_sans_bold" ;;
+    3) FONT_TYPE="math_script" ;;
+    4) FONT_TYPE="math_bold_script" ;;
+    5) FONT_TYPE="math_fraktur" ;;
+    6) FONT_TYPE="math_sans" ;;
+    7) FONT_TYPE="math_italic" ;;
+    8) FONT_TYPE="math_double" ;;
+    9) FONT_TYPE="monospace" ;;
+    10) FONT_TYPE="normal" ;;
+    *)
+        echo -e "${RED}无效的选择，使用默认字体 (数学粗体)${NC}"
+        FONT_TYPE="math_bold"
+        ;;
+esac
+
+# 选择时区
+echo ""
+echo -e "${GREEN}🌍 请选择时区${NC}"
+echo "1) 亚洲/上海 (中国时间)"
+echo "2) 亚洲/香港"
+echo "3) 亚洲/新加坡"
+echo "4) 美国/东部"
+echo "5) 美国/西部"
+echo "6) 欧洲/伦敦"
+echo "7) 自定义"
+read -p "选择 [1-7]: " TIMEZONE_CHOICE
+
+case $TIMEZONE_CHOICE in
+    1) TIMEZONE="Asia/Shanghai" ;;
+    2) TIMEZONE="Asia/Hong_Kong" ;;
+    3) TIMEZONE="Asia/Singapore" ;;
+    4) TIMEZONE="America/New_York" ;;
+    5) TIMEZONE="America/Los_Angeles" ;;
+    6) TIMEZONE="Europe/London" ;;
+    7) 
+        echo "请输入有效的时区名称 (例如: Asia/Tokyo):"
+        read -p "时区: " TIMEZONE
+        ;;
+    *)
+        echo -e "${RED}无效的选择，使用默认时区 Asia/Shanghai${NC}"
+        TIMEZONE="Asia/Shanghai"
+        ;;
+esac
+
+# 选择时间格式
+echo ""
+echo -e "${GREEN}⏰ 请选择时间格式${NC}"
+echo "1) 24小时制 (例如: 22:05)"
+echo "2) 12小时制 (例如: 10:05 PM)"
+echo "3) 带日期 (例如: 12-06 22:05)"
+echo "4) 带星期 (例如: 周四 22:05)"
+echo "5) 带秒显示 (例如: 22:05:30)"
+read -p "选择 [1-5]: " FORMAT_CHOICE
+
+case $FORMAT_CHOICE in
+    1) TIME_FORMAT=1 ;;
+    2) TIME_FORMAT=2 ;;
+    3) TIME_FORMAT=3 ;;
+    4) TIME_FORMAT=4 ;;
+    5) TIME_FORMAT=5 ;;
+    *)
+        echo -e "${RED}无效的选择，使用默认格式 (24小时制)${NC}"
+        TIME_FORMAT=1
+        ;;
+esac
+
+# 输入用户名
+echo ""
+echo -e "${GREEN}👤 请输入您的用户名${NC}"
+read -p "用户名 (例如: Bryanna): " USERNAME
+
+# 选择emoji
+echo ""
+echo -e "${GREEN}😊 请选择emoji (可选)${NC}"
+echo "1) 💕 (爱心)"
+echo "2) 💖 (闪亮心)"
+echo "3) 🌸 (樱花)"
+echo "4) ✨ (星星)"
+echo "5) 🎀 (蝴蝶结)"
+echo "6) 💫 (彗星)"
+echo "7) 🌟 (星星)"
+echo "8) 不使用emoji"
+read -p "选择 [1-8]: " EMOJI_CHOICE
+
+case $EMOJI_CHOICE in
+    1) EMOJI="💕" ;;
+    2) EMOJI="💖" ;;
+    3) EMOJI="🌸" ;;
+    4) EMOJI="✨" ;;
+    5) EMOJI="🎀" ;;
+    6) EMOJI="💫" ;;
+    7) EMOJI="🌟" ;;
+    8) EMOJI="" ;;
+    *)
+        echo -e "${RED}无效的选择，使用默认emoji 💕${NC}"
+        EMOJI="💕"
+        ;;
+esac
+
+# 选择更新频率
+echo ""
+echo -e "${GREEN}⚡ 请选择更新频率${NC}"
+echo -e "${YELLOW}警告: 频繁更新可能导致Telegram账号受限${NC}"
+echo "1) 每分钟 (推荐)"
+echo "2) 每5分钟"
+echo "3) 每小时"
+read -p "选择 [1-3]: " FREQ_CHOICE
+
+case $FREQ_CHOICE in
+    1) UPDATE_FREQ=60 ;;
+    2) UPDATE_FREQ=300 ;;
+    3) UPDATE_FREQ=3600 ;;
+    *)
+        echo -e "${RED}无效的选择，使用默认频率 (每分钟)${NC}"
+        UPDATE_FREQ=60
+        ;;
+esac
+
+# 创建Python脚本
+echo -e "${YELLOW}📝 创建Python脚本...${NC}"
+cat > $WORK_DIR/time_username.py << EOF
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-def convert_font(text, style='default'):
-    font_maps = {
-        'default': lambda x: x,
-        'bold': {
-            'a':'𝐚', 'b':'𝐛', 'c':'𝐜', 'd':'𝐝', 'e':'𝐞', 
-            'f':'𝐟', 'g':'𝐠', 'h':'𝐡', 'i':'𝐢', 'j':'𝐣', 
-            'k':'𝐤', 'l':'𝐥', 'm':'𝐦', 'n':'𝐧', 'o':'𝐨', 
-            'p':'𝐩', 'q':'𝐪', 'r':'𝐫', 's':'𝐬', 't':'𝐭', 
-            'u':'𝐮', 'v':'𝐯', 'w':'𝐰', 'x':'𝐱', 'y':'𝐲', 'z':'𝐳',
-            'A':'𝐀', 'B':'𝐁', 'C':'𝐂', 'D':'𝐃', 'E':'𝐄', 
-            'F':'𝐅', 'G':'𝐆', 'H':'𝐇', 'I':'𝐈', 'J':'𝐉', 
-            'K':'𝐊', 'L':'𝐋', 'M':'𝐌', 'N':'𝐍', 'O':'𝐎', 
-            'P':'𝐏', 'Q':'𝐐', 'R':'𝐑', 'S':'𝐒', 'T':'𝐓', 
-            'U':'𝐔', 'V':'𝐕', 'W':'𝐖', 'X':'𝐗', 'Y':'𝐘', 'Z':'𝐙'
-        },
-        'script': {
-            'a':'𝒶', 'b':'𝒷', 'c':'𝒸', 'd':'𝒹', 'e':'ℯ', 
-            'f':'𝒻', 'g':'ℊ', 'h':'𝒽', 'i':'𝒾', 'j':'𝒿', 
-            'k':'𝓀', 'l':'𝓁', 'm':'𝓂', 'n':'𝓃', 'o':'ℴ', 
-            'p':'𝓅', 'q':'𝓆', 'r':'𝓇', 's':'𝓈', 't':'𝓉', 
-            'u':'𝓊', 'v':'𝓋', 'w':'𝓌', 'x':'𝓍', 'y':'𝓎', 'z':'𝓏',
-            'A':'𝒜', 'B':'𝐵', 'C':'𝒞', 'D':'𝒟', 'E':'𝐸', 
-            'F':'𝐹', 'G':'𝒢', 'H':'𝐻', 'I':'𝐼', 'J':'𝒥', 
-            'K':'𝒦', 'L':'𝐿', 'M':'𝑀', 'N':'𝒩', 'O':'𝒪', 
-            'P':'𝒫', 'Q':'𝒬', 'R':'𝑅', 'S':'𝒮', 'T':'𝒯', 
-            'U':'𝒰', 'V':'𝒱', 'W':'𝒲', 'X':'𝒳', 'Y':'𝒴', 'Z':'𝒵'
-        },
-        'monospace': {
-            'a':'𝚊', 'b':'𝚋', 'c':'𝚌', 'd':'𝚍', 'e':'𝚎', 
-            'f':'𝚏', 'g':'𝚐', 'h':'𝚑', 'i':'𝚒', 'j':'𝚓', 
-            'k':'𝚔', 'l':'𝚕', 'm':'𝚖', 'n':'𝚗', 'o':'𝚘', 
-            'p':'𝚙', 'q':'𝚚', 'r':'𝚛', 's':'𝚜', 't':'𝚝', 
-            'u':'𝚞', 'v':'𝚟', 'w':'𝚠', 'x':'𝚡', 'y':'𝚢', 'z':'𝚣',
-            'A':'𝙰', 'B':'𝙱', 'C':'𝙲', 'D':'𝙳', 'E':'𝙴', 
-            'F':'𝙵', 'G':'𝙶', 'H':'𝙷', 'I':'𝙸', 'J':'𝙹', 
-            'K':'𝙺', 'L':'𝙻', 'M':'𝙼', 'N':'𝙽', 'O':'𝙾', 
-            'P':'𝙿', 'Q':'𝚀', 'R':'𝚁', 'S':'𝚂', 'T':'𝚃', 
-            'U':'𝚄', 'V':'𝚅', 'W':'𝚆', 'X':'𝚇', 'Y':'𝚈', 'Z':'𝚉'
-        },
-        'rounded': {
-            'a':'ａ', 'b':'ｂ', 'c':'ｃ', 'd':'ｄ', 'e':'ｅ', 
-            'f':'ｆ', 'g':'ｇ', 'h':'ｈ', 'i':'ｉ', 'j':'ｊ', 
-            'k':'ｋ', 'l':'ｌ', 'm':'ｍ', 'n':'ｎ', 'o':'ｏ', 
-            'p':'ｐ', 'q':'ｑ', 'r':'ｒ', 's':'ｓ', 't':'ｔ', 
-            'u':'ｕ', 'v':'ｖ', 'w':'ｗ', 'x':'ｘ', 'y':'ｙ', 'z':'ｚ',
-            'A':'Ａ', 'B':'Ｂ', 'C':'Ｃ', 'D':'Ｄ', 'E':'Ｅ', 
-            'F':'Ｆ', 'G':'Ｇ', 'H':'Ｈ', 'I':'Ｉ', 'J':'Ｊ', 
-            'K':'Ｋ', 'L':'Ｌ', 'M':'Ｍ', 'N':'Ｎ', 'O':'Ｏ', 
-            'P':'Ｐ', 'Q':'Ｑ', 'R':'Ｒ', 'S':'Ｓ', 'T':'Ｔ', 
-            'U':'Ｕ', 'V':'Ｖ', 'W':'Ｗ', 'X':'Ｘ', 'Y':'Ｙ', 'Z':'Ｚ'
-        },
-        'math': {
-            'a':'𝕒', 'b':'𝕓', 'c':'𝕔', 'd':'𝕕', 'e':'𝕖', 
-            'f':'𝕗', 'g':'𝕘', 'h':'𝕙', 'i':'𝕚', 'j':'𝕛', 
-            'k':'𝕜', 'l':'𝕝', 'm':'𝕞', 'n':'𝕟', 'o':'𝕠', 
-            'p':'𝕡', 'q':'𝕢', 'r':'𝕣', 's':'𝕤', 't':'𝕥', 
-            'u':'𝕦', 'v':'𝕧', 'w':'𝕨', 'x':'𝕩', 'y':'𝕪', 'z':'𝕫',
-            'A':'𝔸', 'B':'𝔹', 'C':'ℂ', 'D':'𝔻', 'E':'𝔼', 
-            'F':'𝔽', 'G':'𝔾', 'H':'ℍ', 'I':'𝕀', 'J':'𝕁', 
-            'K':'𝕂', 'L':'𝕃', 'M':'𝕄', 'N':'ℕ', 'O':'𝕆', 
-            'P':'ℙ', 'Q':'ℚ', 'R':'ℝ', 'S':'𝕊', 'T':'𝕋', 
-            'U':'𝕌', 'V':'𝕍', 'W':'𝕎', 'X':'𝕏', 'Y':'𝕐', 'Z':'ℤ'
-        }
-    }
-    
-    font_map = font_maps.get(style, font_maps['default'])
-    converted_text = ''.join(font_map.get(char, char) for char in text)
-    
-    return converted_text
-EOF
-
-# 创建主脚本
-cat > $WORK_DIR/time_username.py << 'EOF'
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-import pytz
-from datetime import datetime
-from telethon import TelegramClient, functions
+from telethon import TelegramClient, functions, types
 import asyncio
+import time
 import logging
-import sys
-import importlib.util
 import os
-
-# 动态导入字体转换模块
-spec = importlib.util.spec_from_file_location("font_converter", "/opt/telegram-time/font_converter.py")
-font_converter = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(font_converter)
+import locale
+from datetime import datetime
+import pytz
 
 # 配置日志
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s: %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("/opt/telegram-time/telegram_time.log"),
-        logging.StreamHandler(sys.stdout)
+        logging.FileHandler("$WORK_DIR/time_username.log"),
+        logging.StreamHandler()
     ]
 )
+logger = logging.getLogger(__name__)
 
-# 配置文件路径
-CONFIG_FILE = "/opt/telegram-time/config.txt"
+# 设置时区
+timezone = pytz.timezone("$TIMEZONE")
 
-def get_api_credentials():
-    # 如果配置文件存在，读取凭据
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, 'r') as f:
-            lines = f.readlines()
-            if len(lines) >= 2:
-                return lines[0].strip(), lines[1].strip()
-    
-    # 交互式输入API凭据
-    print("未找到Telegram API凭据，请按提示输入")
-    print("您可以从 https://my.telegram.org/apps 获取")
-    
-    while True:
-        try:
-            api_id = input("请输入 API ID (数字): ")
-            api_hash = input("请输入 API Hash (字符串): ")
-            
-            # 验证输入
-            int(api_id)  # 检查是否为数字
-            if not api_hash or len(api_hash) < 10:
-                raise ValueError("API Hash 无效")
-            
-            # 保存凭据
-            with open(CONFIG_FILE, 'w') as f:
-                f.write(f"{api_id}\n{api_hash}")
-            
-            return api_id, api_hash
-        except ValueError as e:
-            print(f"输入无效：{e}")
-            print("请重新输入")
-        except Exception as e:
-            print(f"发生错误：{e}")
-            sys.exit(1)
-
-# 读取凭据
-API_ID, API_HASH = get_api_credentials()
+# Telegram API配置
+API_ID = '$API_ID'
+API_HASH = '$API_HASH'
+SESSION_NAME = '$WORK_DIR/time_username_session'
 
 # 配置参数
-TIMEZONE = pytz.timezone('Asia/Shanghai')
-ICON = '⌚️'
-TIME_FORMAT = '%H:%M'
-FONT_STYLE = 'default'
-UPDATE_FREQUENCY = 60
+FONT_TYPE = '$FONT_TYPE'
+TIME_FORMAT = $TIME_FORMAT
+USERNAME = '$USERNAME'
+EMOJI = '$EMOJI'
+UPDATE_FREQUENCY = $UPDATE_FREQ  # 秒
+
+# 星期几的中文表示
+weekday_cn = ['一', '二', '三', '四', '五', '六', '日']
+
+# 字体转换函数
+def convert_to_font(text, font_type):
+    """将文本转换为指定字体"""
+    if font_type == "normal":
+        return text
+    
+    # 数字映射
+    normal_digits = "0123456789"
+    math_bold_digits = "𝟎𝟏𝟐𝟑𝟒𝟓𝟔𝟕𝟖𝟗"
+    
+    # 字母映射
+    normal_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+    
+    font_maps = {
+        "math_bold": "𝐀𝐁𝐂𝐃𝐄𝐅𝐆𝐇𝐈𝐉𝐊𝐋𝐌𝐍𝐎𝐏𝐐𝐑𝐒𝐓𝐔𝐕𝐖𝐗𝐘𝐙𝐚𝐛𝐜𝐝𝐞𝐟𝐠𝐡𝐢𝐣𝐤𝐥𝐦𝐧𝐨𝐩𝐪𝐫𝐬𝐭𝐮𝐯𝐰𝐱𝐲𝐳",
+        "math_sans_bold": "𝗔𝗕𝗖𝗗𝗘𝗙𝗚𝗛𝗜𝗝𝗞𝗟𝗠𝗡𝗢𝗣𝗤𝗥𝗦𝗧𝗨𝗩𝗪𝗫𝗬𝗭𝗮𝗯𝗰𝗱𝗲𝗳𝗴𝗵𝗶𝗷𝗸𝗹𝗺𝗻𝗼𝗽𝗾𝗿𝘀𝘁𝘂𝘃𝘄𝘅𝘆𝘇",
+        "math_script": "𝒜𝐵𝒞𝒟𝐸𝐹𝒢𝐻𝐼𝒥𝒦𝐿𝑀𝒩𝒪𝒫𝒬𝑅𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹𝑒𝒻𝑔𝒽𝒾𝒿𝓀𝓁𝓂𝓃𝑜𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏",
+        "math_bold_script": "𝓐𝓑𝓒𝓓𝓔𝓕𝓖𝓗𝓘𝓙𝓚𝓛𝓜𝓝𝓞𝓟𝓠𝓡𝓢𝓣𝓤𝓥𝓦𝓧𝓨𝓩𝓪𝓫𝓬𝓭𝓮𝓯𝓰𝓱𝓲𝓳𝓴𝓵𝓶𝓷𝓸𝓹𝓺𝓻𝓼𝓽𝓾𝓿𝔀𝔁𝔂𝔃",
+        "math_fraktur": "𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷",
+        "math_sans": "𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓",
+        "math_italic": "𝘈𝘉𝘊𝘋𝘌𝘍𝘎𝘏𝘐𝘑𝘒𝘓𝘔𝘕𝘖𝘗𝘘𝘙𝘚𝘛𝘜𝘝𝘞𝘟𝘠𝘡𝘢𝘣𝘤𝘥𝘦𝘧𝘨𝘩𝘪𝘫𝘬𝘭𝘮𝘯𝘰𝘱𝘲𝘳𝘴𝘵𝘶𝘷𝘸𝘹𝘺𝘻",
+        "math_double": "𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫",
+        "monospace": "𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣"
+    }
+    
+    result = text
+    
+    # 转换数字
+    for i, digit in enumerate(normal_digits):
+        result = result.replace(digit, math_bold_digits[i])
+    
+    # 转换字母
+    if font_type in font_maps:
+        font_letters = font_maps[font_type]
+        for i, letter in enumerate(normal_letters):
+            result = result.replace(letter, font_letters[i])
+    
+    return result
+
+def get_time_username():
+    """生成时间用户名"""
+    now = datetime.now(timezone)
+    
+    # 获取时间部分
+    if TIME_FORMAT == 1:  # 24小时制
+        time_part = now.strftime('%H:%M')
+    elif TIME_FORMAT == 2:  # 12小时制
+        time_part = now.strftime('%I:%M %p')
+    elif TIME_FORMAT == 3:  # 带日期
+        time_part = f"{now.strftime('%m-%d')} {now.strftime('%H:%M')}"
+    elif TIME_FORMAT == 4:  # 带星期
+        weekday = weekday_cn[now.weekday()]
+        time_part = f"周{weekday} {now.strftime('%H:%M')}"
+    elif TIME_FORMAT == 5:  # 带秒显示
+        time_part = now.strftime('%H:%M:%S')
+    else:
+        time_part = now.strftime('%H:%M')
+    
+    # 构建完整用户名：时间在前
+    if EMOJI:
+        full_name = f"{time_part} {USERNAME} {EMOJI}"
+    else:
+        full_name = f"{time_part} {USERNAME}"
+    
+    # 应用字体转换
+    styled_name = convert_to_font(full_name, FONT_TYPE)
+    
+    return styled_name
 
 async def update_username():
-    async with TelegramClient('session', API_ID, API_HASH) as client:
+    """更新用户名主函数"""
+    try:
+        # 连接到Telegram
+        client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
+        await client.start()
+        logger.info("✅ 已连接到Telegram")
+        
+        me = await client.get_me()
+        logger.info(f"👤 当前账号: {me.first_name} (@{me.username})")
+        
         while True:
+            new_username = get_time_username()
             try:
-                current_time = datetime.now(TIMEZONE).strftime(TIME_FORMAT)
-                formatted_time = font_converter.convert_font(current_time, FONT_STYLE)
-                new_username = f"{ICON} {formatted_time}"
-                
+                # 更新用户名
                 await client(functions.account.UpdateProfileRequest(
                     first_name=new_username
                 ))
-                logging.info(f"用户名已更新: {new_username}")
-                
-                await asyncio.sleep(UPDATE_FREQUENCY)
+                logger.info(f"🔄 用户名已更新为: {new_username}")
             except Exception as e:
-                logging.error(f"更新失败: {e}")
-                await asyncio.sleep(60)
+                logger.error(f"❌ 更新用户名失败: {e}")
+            
+            # 计算下次更新时间
+            wait_time = UPDATE_FREQUENCY
+            if UPDATE_FREQUENCY == 60:
+                # 如果是每分钟更新，则对齐到整分钟
+                now = datetime.now()
+                wait_time = 60 - now.second
+                
+            logger.info(f"⏰ 等待 {wait_time} 秒后再次更新")
+            await asyncio.sleep(wait_time)
 
-if __name__ == '__main__':
-    asyncio.run(update_username())
+    except Exception as e:
+        logger.error(f"💥 运行出错: {e}")
+        # 如果遇到错误，等待一段时间后重试
+        await asyncio.sleep(60)
+        await update_username()
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    try:
+        loop.run_until_complete(update_username())
+    except KeyboardInterrupt:
+        logger.info("🛑 程序被用户中断")
+    finally:
+        loop.close()
 EOF
 
-# 创建系统服务
+# 设置可执行权限
+chmod +x $WORK_DIR/time_username.py
+
+# 创建systemd服务
+echo -e "${YELLOW}⚙️ 创建系统服务...${NC}"
 cat > /etc/systemd/system/telegram-time.service << EOF
 [Unit]
 Description=Telegram Time Username Updater
@@ -218,26 +360,48 @@ After=network.target
 ExecStart=/usr/bin/python3 $WORK_DIR/time_username.py
 WorkingDirectory=$WORK_DIR
 Restart=always
+RestartSec=10
 User=root
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 设置文件权限
-chmod +x $WORK_DIR/time_username.py
-chmod +x $WORK_DIR/font_converter.py
-
-# 重新加载服务
+# 重新加载systemd
 systemctl daemon-reload
+systemctl enable telegram-time
 
-# 完成提示
-echo -e "\n${GREEN}✅ 安装完成！${NC}"
-echo -e "${YELLOW}使用说明:${NC}"
-echo -e "1. 首次运行将提示输入 Telegram API 凭据"
-echo -e "2. 获取 API 凭据地址: ${BLUE}https://my.telegram.org/apps${NC}"
-echo -e "3. 首次运行脚本: ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}"
-echo -e "4. 登录成功后，按 Ctrl+C 停止"
-echo -e "5. 启动服务: ${BLUE}systemctl start telegram-time${NC}"
-echo -e "6. 查看服务状态: ${BLUE}systemctl status telegram-time${NC}"
-echo -e "7. 查看日志: ${BLUE}tail -f $WORK_DIR/telegram_time.log${NC}"
+# 显示完成信息
+echo ""
+echo -e "${GREEN}🎉 安装完成！${NC}"
+echo ""
+echo -e "${CYAN}┌─────────────────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}│                     使用说明                           │${NC}"
+echo -e "${CYAN}└─────────────────────────────────────────────────────────┘${NC}"
+echo ""
+echo -e "${YELLOW}1. 首次登录您的Telegram账号:${NC}"
+echo -e "   ${BLUE}cd $WORK_DIR && python3 time_username.py${NC}"
+echo ""
+echo -e "${YELLOW}2. 登录成功后，按 ${RED}Ctrl+C${NC} ${YELLOW}停止程序，然后启动服务:${NC}"
+echo -e "   ${BLUE}systemctl start telegram-time${NC}"
+echo ""
+echo -e "${YELLOW}3. 查看服务状态:${NC}"
+echo -e "   ${BLUE}systemctl status telegram-time${NC}"
+echo ""
+echo -e "${YELLOW}4. 查看实时日志:${NC}"
+echo -e "   ${BLUE}tail -f $WORK_DIR/time_username.log${NC}"
+echo ""
+echo -e "${YELLOW}5. 停止服务:${NC}"
+echo -e "   ${BLUE}systemctl stop telegram-time${NC}"
+echo ""
+echo -e "${YELLOW}6. 重启服务:${NC}"
+echo -e "   ${BLUE}systemctl restart telegram-time${NC}"
+echo ""
+echo -e "${GREEN}✨ 您的用户名格式预览: ${NC}"
+if [ "$EMOJI" != "" ]; then
+    echo -e "${PURPLE}   22:05 $USERNAME $EMOJI${NC}"
+else
+    echo -e "${PURPLE}   22:05 $USERNAME${NC}"
+fi
+echo ""
+echo -e "${CYAN}💡 提示: 时间会根据您选择的时区和格式自动更新！${NC}"
